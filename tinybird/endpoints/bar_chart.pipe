@@ -1,0 +1,49 @@
+DESCRIPTION >
+    A generic bar chart API that can render data for a bar chart with configurable parameters for time grouping, aggregation, and breakout dimensions
+
+NODE endpoint
+SQL >
+    %
+    SELECT 
+        toStartOfInterval({{column(timestamp_column, 'timestamp')}}, INTERVAL {{Int32(time_period_seconds, 3600)}} SECOND) AS time_bucket,
+        {% if defined(breakout_column) %}
+            {{column(breakout_column, 'dimension1')}} AS dimension,
+        {% end %}
+        {% if defined(aggregation_type) %}
+            {% if String(aggregation_type) == 'sum' %}
+                sum({{column(value_column, 'value1')}}) AS value
+            {% elif String(aggregation_type) == 'avg' %}
+                avg({{column(value_column, 'value1')}}) AS value
+            {% elif String(aggregation_type) == 'count' %}
+                count({{column(value_column, 'value1')}}) AS value
+            {% elif String(aggregation_type) == 'min' %}
+                min({{column(value_column, 'value1')}}) AS value
+            {% elif String(aggregation_type) == 'max' %}
+                max({{column(value_column, 'value1')}}) AS value
+            {% else %}
+                sum({{column(value_column, 'value1')}}) AS value
+            {% end %}
+        {% else %}
+            sum({{column(value_column, 'value1')}}) AS value
+        {% end %}
+    FROM {{String(datasource, 'sample_table')}}
+    WHERE 1=1
+        {% if defined(start_date) %}
+            AND timestamp >= {{DateTime(start_date)}}
+        {% end %}
+        {% if defined(end_date) %}
+            AND timestamp <= {{DateTime(end_date)}}
+        {% end %}
+    GROUP BY 
+        time_bucket
+        {% if defined(breakout_column) %}
+            , dimension
+        {% end %}
+    ORDER BY time_bucket ASC
+    {% if defined(breakout_limit) %}
+        {% if defined(breakout_column) %}
+            LIMIT {{Int32(breakout_limit)}} BY dimension
+        {% end %}
+    {% end %}
+
+TYPE endpoint
