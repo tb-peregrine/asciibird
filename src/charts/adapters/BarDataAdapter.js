@@ -24,14 +24,10 @@ export class BarDataAdapter extends DataAdapter {
 
     transform() {
         this.validate();
-
         return this.rawData.map(point => {
             const normalized = this.normalizePoint(point);
-
-            // Add bar chart specific properties
             return {
-                ...normalized,
-                // Add any bar chart specific transformations here
+                ...normalized
             };
         });
     }
@@ -47,7 +43,7 @@ export class BarDataAdapter extends DataAdapter {
     // Override getLabel to handle Tinybird data structure
     getLabel(point) {
         if (this.options.tinybird) {
-            return point.dimension || point.label || '';
+            return point.label || point.time_bucket || '';
         }
         return super.getLabel(point);
     }

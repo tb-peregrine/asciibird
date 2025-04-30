@@ -6,7 +6,7 @@ export class Chart {
         // Core chart options
         this.width = options.width || 80;
         this.height = options.height || 20;
-        this.data = options.data || [];
+        this._data = options.data || [];
         this.title = options.title || '';
 
         // Tinybird configuration
@@ -19,6 +19,14 @@ export class Chart {
 
         // Initialize the data adapter
         this.adapter = this.createDataAdapter();
+    }
+
+    set data(newData) {
+        this._data = newData;
+    }
+
+    get data() {
+        return this._data;
     }
 
     /**

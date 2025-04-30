@@ -9,6 +9,55 @@ export class BarRenderer extends Renderer {
     }
 
     /**
+     * Renders a horizontal segmented bar
+     * @param {Array} segments - [{value, char}]
+     * @param {number} totalLength - Total length of the bar
+     * @returns {string}
+     */
+    renderHorizontalSegments(segments, totalLength) {
+        const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+        let bar = '';
+        let used = 0;
+        segments.forEach((seg, i) => {
+            const len = i === segments.length - 1
+                ? totalLength - used // last segment fills remainder
+                : Math.round((seg.value / total) * totalLength);
+            bar += this.repeat(seg.char, len);
+            used += len;
+        });
+        return bar;
+    }
+
+    /**
+     * Renders a vertical segmented bar
+     * @param {Array} segments - [{value, char}]
+     * @param {number} totalHeight - Total height of the bar
+     * @returns {string[]} Array of lines (top to bottom)
+     */
+    renderVerticalSegments(segments, totalHeight) {
+        const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+        let heights = [];
+        let used = 0;
+        segments.forEach((seg, i) => {
+            const h = i === segments.length - 1
+                ? totalHeight - used // last segment fills remainder
+                : Math.round((seg.value / total) * totalHeight);
+            heights.push({ char: seg.char, height: h });
+            used += h;
+        });
+        // Build the bar from top to bottom
+        let lines = [];
+        heights.forEach(seg => {
+            for (let i = 0; i < seg.height; i++) {
+                lines.push(seg.char);
+            }
+        });
+        // Pad to totalHeight if needed
+        while (lines.length < totalHeight) lines.unshift(' ');
+        return lines.slice(0, totalHeight);
+    }
+
+    /**
      * Renders a horizontal bar
      * @param {number} length - Length of the bar
      * @param {string} label - Label for the bar

@@ -52,30 +52,38 @@
     <h1>ASCII Bar Chart Example</h1>
 
     <div class="controls">
-        <select id="orientation-select">
+        <select id="orientation-select" default-value="vertical">
             <option value="horizontal">Horizontal</option>
             <option value="vertical">Vertical</option>
         </select>
 
         <input type="text" id="character-input" value="█" maxlength="2" style="width: 2em;">
 
-        <input type="number" id="width-input" value="80" min="20" max="120">
-        <input type="number" id="height-input" value="20" min="5" max="40">
+        <input type="number" id="width-input" value="80">
+        <input type="number" id="height-input" value="20">
+        <label><input type="checkbox" id="show-labels-checkbox" checked> Show Axes Labels</label>
+        <label><input type="checkbox" id="show-values-checkbox" checked> Show Data Values</label>
         <button id="refresh-btn">Refresh Chart</button>
     </div>
 
     <div class="controls">
-        <input type="text" id="tb-host" placeholder="Tinybird Host (e.g. https://api.tinybird.co)" style="width: 20em;">
+        <input type="text" id="tb-host" value="http://localhost:7181" placeholder="Tinybird Host" style="width: 20em;">
         <input type="text" id="tb-token" placeholder="Tinybird Token" style="width: 10em;">
-        <input type="text" id="tb-label-field" placeholder="Label Field" style="width: 7em;">
-        <input type="text" id="tb-value-field" placeholder="Value Field" style="width: 7em;">
-        <input type="text" id="tb-params" placeholder='Params (key1=val1&key2=val2)' style="width: 16em;">
+        <select id="agg-type">
+            <option value="sum">sum</option>
+            <option value="avg">avg</option>
+            <option value="count">count</option>
+            <option value="min">min</option>
+            <option value="max">max</option>
+        </select>
+        <input type="text" id="value-column" placeholder="Value Column" style="width: 10em;">
         <button id="fetch-tb-btn">Fetch from Tinybird</button>
     </div>
 
     <div class="chart-container">
         <div class="chart-title">Sample Data</div>
         <pre id="ascii-chart"></pre>
+        <div id="ascii-legend"></div>
     </div>
 
     <script type="module">
@@ -113,10 +121,14 @@
         // Tinybird inputs
         const tbHostInput = document.getElementById('tb-host');
         const tbTokenInput = document.getElementById('tb-token');
-        const tbLabelFieldInput = document.getElementById('tb-label-field');
-        const tbValueFieldInput = document.getElementById('tb-value-field');
-        const tbParamsInput = document.getElementById('tb-params');
+        const aggTypeInput = document.getElementById('agg-type');
+        const valueColumnInput = document.getElementById('value-column');
+        const breakoutColumnInput = document.getElementById('breakout-column');
+        const breakoutLimitInput = document.getElementById('breakout-limit');
         const fetchTbButton = document.getElementById('fetch-tb-btn');
+        const showLabelsCheckbox = document.getElementById('show-labels-checkbox');
+        const showValuesCheckbox = document.getElementById('show-values-checkbox');
+        const asciiLegend = document.getElementById('ascii-legend');
 
         // Function to update the chart
         async function updateChart() {
@@ -125,6 +137,8 @@
                 chart.height = parseInt(heightInput.value);
                 chart.orientation = orientationSelect.value;
                 chart.character = characterInput.value || '█';
+                chart.showLabels = showLabelsCheckbox.checked;
+                chart.showValues = showValuesCheckbox.checked;
                 chartElement.textContent = chart.render();
             } catch (error) {
                 console.error('Error updating chart:', error);
@@ -133,35 +147,32 @@
         }
 
         async function fetchTinybirdData() {
-            try {
-                const tbHost = tbHostInput.value.trim();
-                const tbToken = tbTokenInput.value.trim();
-                const tbLabelField = tbLabelFieldInput.value.trim();
-                const tbValueField = tbValueFieldInput.value.trim();
-                const tbParamsStr = tbParamsInput.value.trim();
-                if (tbHost && tbToken && tbLabelField && tbValueField) {
-                    let params = {};
-                    if (tbParamsStr) {
-                        tbParamsStr.split('&').forEach(pair => {
-                            const [k, v] = pair.split('=');
-                            if (k && v !== undefined) params[k] = v;
-                        });
-                    }
-                    const url = tbHost.replace(/\/$/, '') + '/v0/pipes/bar_chart.json';
-                    const tbSource = new TinybirdDataSource({
-                        url,
-                        token: tbToken,
-                        params,
-                        labelField: tbLabelField,
-                        valueField: tbValueField
-                    });
-                    const chartData = await tbSource.getData();
-                    chart.data = chartData;
-                    updateChart();
-                }
-            } catch (error) {
-                console.error('Error fetching Tinybird data:', error);
-                chartElement.textContent = 'Error fetching Tinybird data';
+            const tbHost = tbHostInput.value.trim();
+            const tbToken = tbTokenInput.value.trim();
+            const aggType = aggTypeInput.value;
+            const valueColumn = valueColumnInput.value.trim();
+            if (!tbHost || !tbToken) {
+                alert('Please provide both Tinybird host and token');
+                return;
+            }
+            let params = {};
+            if (aggType) params.aggregation_type = aggType;
+            if (valueColumn) params.value_column = valueColumn;
+            const url = tbHost.replace(/\/$/, '') + '/v0/pipes/bar_chart.json';
+            const tbSource = new TinybirdDataSource({
+                url,
+                token: tbToken,
+                params,
+            });
+            const chartData = await tbSource.getData();
+            chart.data = chartData;
+            const rendered = chart.render();
+            chartElement.textContent = rendered;
+            // Render legend if available
+            if (chart.legend) {
+                asciiLegend.innerHTML = chart.legend;
+            } else {
+                asciiLegend.innerHTML = '';
             }
         }
 
@@ -172,6 +183,8 @@
         widthInput.addEventListener('change', updateChart);
         heightInput.addEventListener('change', updateChart);
         fetchTbButton.addEventListener('click', fetchTinybirdData);
+        showLabelsCheckbox.addEventListener('change', updateChart);
+        showValuesCheckbox.addEventListener('change', updateChart);
 
         // Initial render
         updateChart();

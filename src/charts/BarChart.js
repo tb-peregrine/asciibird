@@ -28,15 +28,14 @@ export class BarChart extends Chart {
         });
     }
 
-    render() {
-        const normalizedData = this.normalizeData();
-        const dimensions = this.calculateDimensions();
+    set data(newData) {
+        this._data = newData;
+        // Update the adapter with new data
+        this.adapter = this.createDataAdapter();
+    }
 
-        if (this.orientation === 'horizontal') {
-            return this.renderHorizontal(normalizedData, dimensions);
-        } else {
-            return this.renderVertical(normalizedData, dimensions);
-        }
+    get data() {
+        return this._data;
     }
 
     renderHorizontal(data, dimensions) {
@@ -50,7 +49,9 @@ export class BarChart extends Chart {
         }
         // Calculate label width
         const maxLabelLength = Math.max(...data.map(d => d.label.length));
-        const labelWidth = maxLabelLength + 2;
+        const labelWidth = this.showLabels ? maxLabelLength + 2 : 0;
+        // The axis is always at the same column
+        const axisCol = labelWidth + (this.showLabels ? 1 : 0);
         // Calculate spacing between bars
         let spacing = 0;
         let extraLines = 0;
@@ -60,19 +61,24 @@ export class BarChart extends Chart {
         }
         // Render each bar with spacing
         data.forEach((item, idx) => {
-            const barLength = this.scaleValue(item.value, dimensions);
-            const label = this.renderer.pad(item.label, labelWidth);
-            const bar = this.renderer.repeat(this.character, barLength);
+            // Pad label to labelWidth
+            const label = this.showLabels ? this.renderer.pad(item.label, labelWidth) : '';
+            const dash = this.showLabels ? '-' : '';
+            const axis = this.showAxis ? '|' : '';
+            const bar = this.renderer.repeat(this.character, this.scaleValue(item.value, dimensions));
             const value = this.showValues ? ` (${item.value})` : '';
-            lines.push(`${label} ${bar}${value}`);
+            const sep = this.showLabels ? ' ' : '';
+            // Compose the line: [label][dash][axis][sep][bar][value]
+            lines.push(`${label}${dash}${axis}${sep}${bar}${value}`);
             // Add vertical spacing after each bar except the last
             if (idx < numBars - 1) {
                 for (let s = 0; s < spacing; s++) {
-                    lines.push('');
+                    // Spacing lines: pad to labelWidth, then add axis in the same column, then sep
+                    lines.push(`${''.padEnd(labelWidth, ' ')}${this.showLabels ? ' ' : ''}${this.showAxis ? '|' : ''}${sep}`);
                 }
                 // Distribute any extra lines
                 if (extraLines > 0) {
-                    lines.push('');
+                    lines.push(`${''.padEnd(labelWidth, ' ')}${this.showLabels ? ' ' : ''}${this.showAxis ? '|' : ''}${sep}`);
                     extraLines--;
                 }
             }
@@ -129,22 +135,50 @@ export class BarChart extends Chart {
         for (let row = 0; row < chartHeight; row++) {
             lines.push(grid[row].join(''));
         }
-        // Add labels, centered under each bar
+        // Add X axis (underscores) only
+        if (this.showAxis) {
+            let axisLine = Array(chartLineWidth).fill('_');
+            lines.push(axisLine.join(''));
+        }
+        // Add sparse, non-overlapping axes labels in a single line, with '|' under the bar, and labels on the next line
         if (this.showLabels) {
+            let markerLine = Array(chartLineWidth).fill(' ');
             let labelLine = Array(chartLineWidth).fill(' ');
-            data.forEach((item, i) => {
-                let label = item.label;
+            let lastEnd = -1;
+            for (let i = 0; i < numBars; i++) {
+                let label = data[i].label;
                 // Truncate label if it would overflow chart width
                 if (label.length > chartLineWidth) {
                     label = label.slice(0, chartLineWidth);
                 }
                 const labelStart = Math.max(0, Math.min(chartLineWidth - label.length, barPositions[i] - Math.floor((label.length - 1) / 2)));
-                for (let j = 0; j < label.length && (labelStart + j) < chartLineWidth; j++) {
-                    labelLine[labelStart + j] = label[j];
+                const labelEnd = labelStart + label.length - 1;
+                // Only place label if it doesn't overlap the previous one and there's at least one space between
+                if (labelStart > lastEnd + 1 && labelEnd < chartLineWidth) {
+                    // Place '|' directly above the bar position if possible
+                    if (barPositions[i] >= 0 && barPositions[i] < chartLineWidth) {
+                        markerLine[barPositions[i]] = '|';
+                    }
+                    for (let j = 0; j < label.length && (labelStart + j) < chartLineWidth; j++) {
+                        labelLine[labelStart + j] = label[j];
+                    }
+                    lastEnd = labelEnd;
                 }
-            });
+            }
+            lines.push(markerLine.join(''));
             lines.push(labelLine.join(''));
         }
         return lines.join('\n');
+    }
+
+    render() {
+        const normalizedData = this.normalizeData();
+        const dimensions = this.calculateDimensions();
+
+        if (this.orientation === 'horizontal') {
+            return this.renderHorizontal(normalizedData, dimensions);
+        } else {
+            return this.renderVertical(normalizedData, dimensions);
+        }
     }
 } 

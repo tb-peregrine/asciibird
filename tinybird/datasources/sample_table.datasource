@@ -1,9 +1,9 @@
 SCHEMA >
     `timestamp` DateTime `json:$.timestamp`,
-    `dimension1` String `json:$.dimension`,
+    `dimension1` String `json:$.dimension1`,
     `dimension2` String `json:$.dimension2`,
     `dimension3` String `json:$.dimension3`,
-    `value1` Float32 `json:$.value`,
+    `value1` Float32 `json:$.value1`,
     `value2` Float32 `json:$.value2`,
     `value3` Float32 `json:$.value3`
 
